@@ -3,7 +3,7 @@ name: dot-codex-connect
 description: Prepare and troubleshoot the source-based, self-hosted Dot Codex Connect MCP service and Mac connector; explain architecture and evidence-backed limitations.
 ---
 
-# Dot Codex Connect — from source
+# Dot Codex Connect from source
 
 Use the full source repository: this Skill alone is not the server. The new source
 is MIT-licensed with third-party notices; no purchase or Star is required.
@@ -15,7 +15,7 @@ Do not download or describe the old paid preview app as this open-source build.
    into a new directory and set `DOT_CODEX_SOURCE` to that absolute path. Never
    overwrite an existing checkout. Resolve the documentation links below against
    the original `skills/dot-codex-connect/` in that checkout.
-   Read [self-host setup](../../docs/self-hosting.md). Run
+   Read [self-hosting guide](../../docs/self-hosting.md). Run
    `bash scripts/setup-mac.sh --check` from this Skill directory. It only checks
    interpreter versions and source presence; it does not inspect accounts.
 2. Run `bash scripts/setup-mac.sh --test` for isolated synthetic tests. Report
@@ -40,7 +40,7 @@ Do not download or describe the old paid preview app as this open-source build.
    For unknown send outcomes, query the original request ID; never auto-resend.
 
 When explaining implementation, read [architecture and protocol](../../docs/architecture.md).
-For failures, read [verified development record](../../docs/development-history.md)
+For failures, read [development history and evidence](../../docs/development-history.md)
 and [security and release boundaries](../../docs/security.md). Distinguish newly
 reproduced tests, historical reports, and unknown production behavior. Never
 invent development stories or publish private request bodies to illustrate them.

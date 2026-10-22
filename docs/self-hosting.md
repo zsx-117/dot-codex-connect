@@ -1,56 +1,56 @@
-# 自托管安装与源码构建
+# Self-hosting and source builds
 
-除明确进入子目录的命令外，下列代码块均从仓库根目录执行。子目录命令使用子 shell，不改变后续命令的工作目录。安装 Skill 见 [README](../README.md#安装为-codex-skill)。
+Run the following code blocks from the repository root unless a command explicitly enters a subdirectory. Subdirectory commands use a subshell so later commands keep the same working directory. For Skill installation, see the [README](../README.md#install-as-a-codex-skill).
 
-## 离线检查
+## Offline checks
 
-要求 Node 24+、Python 3.12+，使用内置模块，不运行 npm/pip 安装脚本。
+Requires Node 24+ and Python 3.12+. The core uses built-in modules and does not run npm/pip installation scripts.
 
 ```sh
 bash skills/dot-codex-connect/scripts/setup-mac.sh --check
 bash skills/dot-codex-connect/scripts/setup-mac.sh --test
 ```
 
-解释器不在 PATH 时，设置 `DOT_NODE_BIN` / `DOT_PYTHON_BIN`。测试使用合成身份；OAuth 测试密钥只在内存中存在，不存盘、不注册真实账户。HTTP 监听测试另行运行 `(cd selfhost && node --test http.test.mjs)`，它只监听临时 loopback 端口；初次受沙箱 EPERM 阻塞，获得用户授权后的一次重试通过，监听已关闭。
+Set `DOT_NODE_BIN` / `DOT_PYTHON_BIN` if the interpreters are not on PATH. Tests use synthetic identities. OAuth test keys exist only in memory; they are not saved, and no real accounts are registered. Run the HTTP listener test separately with `(cd selfhost && node --test http.test.mjs)`. It uses only an ephemeral loopback port. The initial attempt was blocked by sandbox EPERM; one retry after explicit user approval passed, and the listener was closed.
 
-## 本机连接器源码构建
+## Build the local connector from source
 
 ```sh
 python3 scripts/build-source.py --output ./connector-source.zip
 python3 scripts/test_source_build.py
 ```
 
-归档包含 11 个 Python 模块、MIT 许可、运行说明和文件哈希，时间/排序/模式固定。同输入构建两次哈希一致；独立解压后子进程自检通过。它不是 macOS App、不含二进制、签名或公证。用标准 Python 运行，无 Gatekeeper/quarantine 修改。
+The archive contains 11 Python modules, the MIT license, run instructions, and file hashes. Timestamps, ordering, and file modes are fixed. Two builds from the same inputs produced identical hashes, and a subprocess self-check passed after extraction into a separate directory. This is not a macOS app and contains no compiled binaries, signing, or notarization. It runs with standard Python and requires no Gatekeeper or quarantine changes.
 
-## 服务：静态或 OAuth 模式
+## Service: static or OAuth mode
 
-静态模式复制 `selfhost/.env.example`；OAuth 模式复制 `.env.oauth.example`。配置文件不提交 Git；样例无可用凭据。由部署者提供自己管理的设备凭据，静态模式再提供不同的 MCP 凭据。OAuth 模式禁止静态令牌后门。当前准备没有创建任何真实持久凭据。
+For static mode, copy `selfhost/.env.example`; for OAuth mode, copy `selfhost/.env.oauth.example` to your private configuration. Keep configuration files out of Git. The examples contain no usable credentials. The operator supplies a device credential they control and, in static mode, a different MCP credential. OAuth mode forbids a static-token fallback. No real persistent credentials were created during this preparation.
 
 ```sh
 (cd selfhost && node --env-file=.env server.mjs)
 ```
 
-服务构建本地 `.generated/`，初始化自己的 SQLite，绑定 `127.0.0.1:8787`。全新状态目录、运行用户独占，umask 077；不能指向现有付费服务数据库。一个进程只支持一个 operator 和数据库。源码没有支付/权益服务调用，也没有客户/交易表。
+The service builds its local `.generated/` directory, initializes its own SQLite database, and binds to `127.0.0.1:8787`. Use a fresh state directory accessible only to the service user, with umask 077. Never point it at an existing paid-service database. Each process supports one operator and one database. The source has no payment/entitlement service calls or customer/transaction tables.
 
-部署者需用自己维护的 HTTPS 代理暴露 `/mcp`、`/agent`；OAuth 模式还暴露 `/.well-known/oauth-protected-resource/mcp`。代理保留认证头、限制流量，禁止记录正文与凭据。不接受直接浏览器 Origin POST；浏览器直连不在验证范围。当前任务没有创建域名、代理、证书或部署。
+Use an HTTPS proxy you maintain to expose `/mcp` and `/agent`. OAuth mode also exposes `/.well-known/oauth-protected-resource/mcp`. Preserve authentication headers, limit traffic, and do not log request bodies or credentials. Browser POST requests carrying an Origin header are rejected; direct browser access is outside the validated scope. No domains, proxies, certificates, or deployments were created during this preparation.
 
-OAuth 登录、精确配置和必须由用户操作的步骤见 [OAuth 与 Dot](oauth.md)。静态 Bearer 不能冒称 OAuth。
+See [OAuth and Dot](oauth.md) for login, exact configuration, and steps the user must perform. Static Bearer authentication is not OAuth.
 
-## Mac 显式绑定与前台运行
+## Explicit Mac binding and foreground operation
 
-Mac 已有可用 Codex CLI 和用户自己的登录环境。设置 `DOT_CONNECT_SERVICE` 为自己的 HTTPS origin，`DOT_DEVICE_TOKEN` 为服务设备凭据，`DOT_CONNECT_HOME` 为**全新绝对路径**。
+The Mac must already have a working Codex CLI and the user's own login environment. Set `DOT_CONNECT_SERVICE` to your HTTPS origin, `DOT_DEVICE_TOKEN` to the service's device credential, and `DOT_CONNECT_HOME` to a **fresh absolute path**.
 
 ```sh
 python3 selfhost/configure_mac.py --home "$DOT_CONNECT_HOME" --approve-account-binding
 python3 service/connector/src/connector.py run --home "$DOT_CONNECT_HOME"
 ```
 
-绑定命令经公共 AppServer 读取当前账户身份，确认设备心跳后保存 fingerprint 与配置；不读取账号文件或聊天，不发送任务，不创建密钥。遇到已有状态拒绝覆盖。第二个命令前台运行，不安装 launchd。源码 CLI 已删除旧购买配对/商业安装入口。系统 CA 继续验证 TLS，证书错误应修复 CA/代理配置，不能关闭验证。
+The binding command reads the current account identity through the public AppServer interface, confirms a device heartbeat, then saves the fingerprint and configuration. It does not read account files or chats, send tasks, or create keys. It refuses to overwrite existing state. The second command runs in the foreground and does not install a launchd service. The source CLI no longer exposes the old purchase-pairing or commercial-installation commands. TLS verification continues to use system CAs. Fix CA/proxy configuration when certificate errors occur; do not disable verification.
 
-账户绑定、真实设备心跳和请求收发本次未执行。若部分绑定失败，保留私有状态并核对，不能自动换 key 或覆盖目录。
+Real account binding, device heartbeats, and task exchange were not performed during this preparation. If binding partially fails, preserve and inspect the private state; do not automatically replace the key or overwrite the directory.
 
-## 逐层验收与停用
+## Layered validation, troubleshooting, and shutdown
 
-先 initialize/tools/list，再检查访问状态/设备 heartbeat。获得对指定可丢弃测试会话的授权后才 list/read/send；每次使用稳定 requestId。检查目标 turn 和实际回复，再单独验证 webhook 接收与应用 ACK。停止前台进程即可停用，状态保留；删除状态或撤销凭据须另行明确操作。
+Start with initialize/tools/list, then check access status and the device heartbeat. Only list/read/send after authorization for a specific disposable test conversation, using a stable requestId each time. Verify the target turn and actual reply, then independently verify webhook receipt and the application ACK. Stop the foreground process to stop the connector; state is retained. Deleting state or revoking credentials requires a separate explicit action.
 
-Webhook 目的地使用系统 DNS，并固定公开 IP 验证 TLS；源码版移除了内置外部 DNS fallback。若 VPN 返回 Fake-IP/私有地址，发送会拒绝，需操作者修复自己的 DNS 配置；本任务不改变 VPN 或系统 DNS。
+Webhook destinations are resolved through system DNS, with public IP pinning and TLS verification. The source version removes the built-in external DNS fallback. If a VPN returns Fake-IP or private addresses, delivery is rejected. The operator must fix their DNS configuration; this preparation did not change the VPN or system DNS.

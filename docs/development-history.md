@@ -1,54 +1,54 @@
-# 可核实的开发过程与问题记录
+# Verifiable development history and lessons learned
 
-证据分级：**本次复现**指本候选上的合成测试；**历史报告**指读取到的独立验收文档；**源码证据**只说明代码实现；**未知**不得写成已经解决。没有导出私人聊天、原始请求或真实事件。
+Evidence levels: **reproduced here** means synthetic tests against this candidate; **historical report** means an independent acceptance document that was actually reviewed; **source evidence** establishes only what the code implements; **unknown** must not be described as fixed. Private conversations, original requests, and real events have not been exported.
 
-## 已核对的历史
+## Reviewed historical evidence
 
-| 版本/证据 | 问题、处理与证据边界 |
+| Version/evidence | Finding, response, and evidence limits |
 |---|---|
-| 2026-10-10 r3 独立报告；服务 `1e09b5669c3bc662fa5ae217f91c1ca09f363f50`，MCP 0.2.9 / Mac 0.2.4 | 记录原 P1 外来 turn 覆盖和 P2 等待取消/截止期问题在限定复测通过；50 个并发稳定 requestId 只产生一条任务；不等于所有生产交错安全。 |
-| 同一 r3 报告 | 丢失 start 响应后，仅有完整 turn/completed 的 items 时，状态 completed 但 messages 为空，且终态缓存不再恢复。7 项边界中 1 项失败，并保留原断言。 |
-| 2026-10-10 r4 独立报告；`eaff596487b6cc95f92a9857bb766fe06bd26c3a`，MCP 0.2.10 / Mac 0.2.5 | 原两份 F3 harness 未改断言重测通过：从准确匹配的完成 turn items 提取回复，去重、保序、错误标记/外线程不取正文。指定 6 测试/9 场景通过；该轮未重跑所有回归或真实断网。 |
-| r3 补传优先测试 | 新完成/需输入/审批结果优先于旧积压；每批至多 6 条、8 秒预算、失败不误记成功。153 秒旧积压是虚拟 RPC 示例，不能描述成真实网络故障。 |
-| 0.2.11 的 `turnId` 与 `turn.id` 冲突线索 | 本次有作者报告线索及较新源码，但未取得该版本独立完整回归的充分证据。r4 覆盖了一类顶层/嵌套冲突，不足以泛化所有 0.2.11 交错。 |
-| 当前导出服务 `e5fc9f80df007c703c014638f0dd08af2ebd22ec`（2026-10-13） | 源码同时包含 MCP 0.3.2 标记、连接器入口 0.3.1 标记；内部版本号不同是事实，不自行改称统一发行版。 |
+| Independent r3 report, 2026-10-10; service `1e09b5669c3bc662fa5ae217f91c1ca09f363f50`, MCP 0.2.9 / Mac 0.2.4 | Records bounded retests passing for the original P1 unrelated-turn overwrite and P2 wait cancellation/deadline issues. Fifty concurrent requests with a stable requestId produced one job. This does not establish safety under every production interleaving. |
+| The same r3 report | After a lost start response, a complete turn/completed event containing items could leave status completed but messages empty, with the terminal cache preventing recovery. One of seven boundary cases failed; the original assertion was retained. |
+| Independent r4 report, 2026-10-10; `eaff596487b6cc95f92a9857bb766fe06bd26c3a`, MCP 0.2.10 / Mac 0.2.5 | Both original F3 harnesses passed without changing assertions. Replies were extracted from exactly matching completed-turn items, deduplicated, and kept in order; error markers and unrelated threads did not supply reply bodies. The selected six tests/nine scenarios passed. The pass did not rerun every regression or test a real network outage. |
+| r3 catch-up priority tests | Newly completed, input-needed, and approval results took priority over old backlog. Batches were limited to six entries and an eight-second budget; failures were not recorded as successes. The 153-second backlog was a simulated RPC example, not an observed real network outage. |
+| Reports of `turnId` versus `turn.id` conflicts in 0.2.11 | An author-reported fix and newer source were available, but there was insufficient independent evidence of a full regression run for that version. r4 covered one class of top-level/nested conflict; that cannot be generalized to every 0.2.11 interleaving. |
+| Exported service source `e5fc9f80df007c703c014638f0dd08af2ebd22ec` (2026-10-13) | The source contains an MCP 0.3.2 marker and a connector-entry 0.3.1 marker. The differing internal versions are a recorded fact, not grounds for inventing a unified release number. |
 
-上述报告内容可通过本地审查清单里的路径和 SHA-256 回核。公开文档不附带机器绝对路径或原业务消息。另一个 `Codex Bridge 2.0.1` 的评估是第三方研究，不能当成本项目的验收、源码归属或许可证证据；本候选未复制其源码。
+The reports can be checked against paths and SHA-256 hashes in the private local review manifest. Public documentation excludes machine-specific absolute paths and original business messages. A separate evaluation of `Codex Bridge 2.0.1` is third-party research, not evidence of this project's validation, source ownership, or license. Its source was not copied into this candidate.
 
-## 从代码得到的设计经验
+## Design lessons supported by the code
 
-1. 稳定 ID 与不可变载荷解决重复请求；仅把工具标为 idempotent 不足以解决断线后的重复 turn/start。
-2. 写前持久化 startIntent，未知响应进入只读恢复。队列返回 accepted 不是会话收到。
-3. thread、turn、userMessage 标记必须同时关联，不能取“最近完成”的任意回复。
-4. 等待调用的截止期需覆盖数据库/授权查询本身；取消等待不取消原任务。
-5. webhook 接收、ACK 与执行回复分别持久保存。迟到失败不能推翻已送达或 ACK。
-6. 账户切换应暂停，而非悄悄重建绑定。CLI 升级后重查可执行路径，不能沿用失效 App 路径。
+1. Stable IDs and immutable payloads address duplicate requests. Merely labeling a tool idempotent does not prevent duplicate turn/start calls after a disconnect.
+2. Persist startIntent before writing, and use read-only recovery when the response is unknown. A queue's accepted response does not mean the conversation received the request.
+3. Correlate thread, turn, and userMessage markers together. Do not take a reply from an arbitrary most recently completed turn.
+4. A wait deadline must also bound database and authorization queries. Cancelling a wait does not cancel the original task.
+5. Persist webhook receipt, ACK, and execution replies separately. A late failure must not undo a delivered or acknowledged result.
+6. Pause on account changes instead of silently rebuilding the binding. Recheck executable paths after CLI upgrades rather than reusing an obsolete app path.
 
-这些经验能在 `service/tests/` 找到对应合成断言；当前代码是否在每个真实 CLI/桌面版本上成立仍未知。
+Corresponding synthetic assertions are in `service/tests/`. Whether the current code holds these guarantees across every real CLI/desktop version remains unknown.
 
-## 本次开源准备新发现（不是旧产品事故）
+## Findings from open-source preparation, not historical product incidents
 
-- 原服务认证和付费权益依赖托管平台，直接换 MIT 文件不能自托管。新增独立单用户入口，复用实际库并用 SQLite 适配 D1 接口；禁止外部 fetch 的测试通过。
-- 初版测试 runner 缺 `if __name__ == '__main__'`，Mac multiprocessing spawn 递归运行导致失败；加入口保护后两套 Python 源码各 47 测试通过。
-- 首版源码白名单排除了结账集成模块，导致测试 import 失败；只恢复该源码模块，继续排除生产快照与运维统计脚本。
-- 邮件脱敏改变了字面量身份却未改变动态 fixture 邮件构造，导致 5 项历史商业测试失败。统一合成身份映射，保留断言和业务分支；这是脱敏工具的问题，不据此声称产品故障。
-- 老安装器是安装文件限定许可，并不是 MIT；旧 Skill 的付费门禁、旧预编译下载和不许解释实现的限制已从新入口移除。旧 App 的签名、完整源码对应关系和可重复构建仍未核验。
+- Original service authentication and paid entitlements depended on the hosted platform. Replacing a license file alone did not make it self-hostable. An independent single-user entry point was added, reusing the actual libraries with a SQLite adapter for the D1 interface. Tests with external fetch forbidden passed.
+- The first test runner lacked `if __name__ == '__main__'`. Mac multiprocessing spawn recursively ran the runner and failed. Adding the entry-point guard allowed both Python source copies to pass 47 tests each.
+- The first source allowlist excluded a checkout integration module, causing test imports to fail. Only that source module was restored at that stage; production snapshots and operational analytics scripts stayed excluded.
+- Email redaction changed literal identities but missed dynamically constructed fixture addresses, causing five historical commercial tests to fail. Synthetic identity mapping was made consistent while preserving assertions and business branches. This was a redaction-tool issue, not evidence of a product incident.
+- The old installer had a license limited to installation files, not MIT. The new entry point removes the old Skill's purchase gate, prebuilt downloads, and restriction on explaining private implementation details. The old app's signing, complete correspondence to source, and reproducible build remain unverified.
 
-关于早期设计动机、尚未找到的实现细节、真实故障发生频率、全部开发者归属、生产数据/客户情况：未知，不补写故事。
+Early design motivations, undiscovered implementation details, actual incident frequency, attribution of every contributor, and production/customer circumstances remain unknown. No stories are invented to fill those gaps.
 
-## 第二轮开源收敛（2026-10-22）
+## Second preparation pass (2026-10-22)
 
-- 支付模块、统计代码、平台网站模板及前端依赖已移到本机私有备份。核心独立 access 模块和核心 SQL 不再含权益查询、配对收费或客户表；六组云端回归仍通过。
-- 原创开源署名确定为公开账号 `zsx-117`。模板归属问题通过不分发/不加载模板来收敛，未把一份插件 MIT 泛化到所有 starter 文件。
-- 新增 OAuth 资源元数据、受众/身份/客户端/权限/时间/签名校验；八项自托管及 OAuth 合成测试通过。这里包含本次新增的测试，不是过去真实登录故障的修复。
-- 新增确定性源码连接器打包。两次构建内容与归档 hash 相同，解压后 self-check 子进程启动通过；无真实账号读取。源码版标记带 `+oss.1`，不冒称旧签名 App 的对应构建。
-- 真正 loopback HTTP 测试的 listen(127.0.0.1, 0) 初次被沙箱以 EPERM 拒绝；在用户明确授权后经受支持审批重试一次，合成 HTTP 测试通过并关闭监听。未改防火墙、代理或生产配置。这个结果不代表真实 Dot/HTTPS/Mac/ACK 链路验收。
+- Payment modules, analytics, platform website templates, and frontend dependencies were moved into private local backups. The independent access module and core SQL no longer contain entitlement queries, paid pairing, or customer tables. All six cloud regression groups still passed.
+- Original open-source work is attributed to the public account `zsx-117`. Template attribution concerns were resolved by excluding and not loading those templates, not by treating one plugin's MIT license as covering every starter file.
+- OAuth resource metadata and audience/identity/client/scope/time/signature validation were added. Eight self-hosting and OAuth synthetic tests passed. These include new tests from this preparation, not fixes for previously observed real login incidents.
+- Deterministic connector source packaging was added. Two builds had identical contents and archive hashes. A self-check subprocess passed after extraction, without reading a real account. Source versions carry `+oss.1`; they are not claimed to reproduce the old signed app.
+- The first real loopback HTTP attempt at listen(127.0.0.1, 0) was denied with sandbox EPERM. After explicit user approval, one retry through the supported approval process passed the synthetic HTTP test and closed the listener. No firewall, proxy, or production configuration was changed. This does not establish real Dot/HTTPS/Mac/ACK end-to-end validation.
 
-## 历史报告的核对摘要
+## Historical report hashes
 
-以下 SHA-256 对应实际读取的独立报告原件；原文含本机路径，未分发。公开部分仅提炼结论和证据边界，不附原聊天/请求。
+These SHA-256 hashes identify the independent reports actually reviewed. The originals contain local paths and are not distributed. The public account contains only findings and evidence limits, without original conversations or requests.
 
-- `independent-acceptance-final.md`：`a4a6cbf28087cc66c0858cd91d834aceab8c6cad805fa151ff0a6c6fe91f7526`
-- `independent-acceptance-f3.md`：`73e3fef904621899a696e3c0920d5a7554431d77c3635dc25d074d0f51a3b679`
+- `independent-acceptance-final.md`: `a4a6cbf28087cc66c0858cd91d834aceab8c6cad805fa151ff0a6c6fe91f7526`
+- `independent-acceptance-f3.md`: `73e3fef904621899a696e3c0920d5a7554431d77c3635dc25d074d0f51a3b679`
 
-- 最后依赖检查发现旧 webhook 代码在 Fake-IP 环境自动查询固定外部 DNS 服务。核心版改为只用操作者系统 DNS，非公开地址拒绝；新增合成测试证明不会自动向外部解析器发请求。当前 Python 测试增加为 48 项。
+A final dependency review found that the old webhook code automatically queried a fixed external DNS service in Fake-IP environments. The core now uses only the operator's system DNS and rejects non-public addresses. A new synthetic test verifies that it does not automatically query an external resolver. The Python test count is now 48.

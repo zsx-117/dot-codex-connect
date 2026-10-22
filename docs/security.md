@@ -1,22 +1,22 @@
-# 安全、隐私与发布边界
+# Security, privacy, and release boundaries
 
-只使用隔离文本源码候选。不得将本目录之外的 Git 仓库、备份包、运行目录、账户文件或审核材料一并发布。
+Use only the isolated, reviewed text-source package for publication. Do not include other Git repositories, backup archives, runtime directories, account files, or private review materials.
 
-当前准备扫描了四个相关 Git 仓库的 `--all` 可达 blob：服务、旧服务、商业结账、安装器。扫描规则覆盖常见 provider token、私钥、JWT、URL 凭据、credential literal、UUID、邮件、本机路径和交易标记。结果只记录文件/对象位置和规则名，不输出原值。正则检查不能证明没有秘密；二进制、未追踪状态、不可达对象、reflog、外部归档和受限会话未做全面取证，全部不发布。
+Preparation scanned blobs reachable through `--all` in four related Git repositories: the service, the earlier service, commercial checkout, and the installer. Rules covered common provider tokens, private keys, JWTs, URL credentials, credential literals, UUIDs, email addresses, local paths, and transaction markers. Results recorded only file/object locations and rule names, never original values. Regex checks cannot prove that a package contains no secrets. Binaries, untracked state, unreachable objects, reflogs, external archives, and restricted conversations were not comprehensively examined and are excluded from publication.
 
-发布排除：`.git`、`.openai`、运行 DB、真实 jobs/events/deliveries、私人会话、账户与设备绑定、日志、生产统计 snapshot、客户/订单数据、旧二进制。发现个人固定通知路由后移除；示例身份使用 `.invalid`，原 UUID 换为一致的合成 fixture，避免泄露真实会话标识。
+Excluded content includes original `.git` directories, `.openai`, runtime databases, real jobs/events/deliveries, private conversations, account and device bindings, logs, production analytics snapshots, customer/order data, and old binaries. A fixed personal notification route was identified and removed. Example identities use `.invalid`; original UUIDs were replaced with consistent synthetic fixtures to avoid disclosing real conversation identifiers.
 
-自托管状态库保存请求/回复，只有部署者应能读取；做访问控制、备份和删除策略。数据库不得进入 Git。MCP/device 凭据分别保管，服务启动拒绝样例凭据，永不记录正文。Webhooks 仍有第三方目的地，未来真实订阅必须有对应授权；本次没有创建订阅或发送外部消息。
+The self-hosted state database stores requests and replies. Only the operator should be able to read it; apply access controls and define backup and deletion policies. Never commit the database to Git. Keep MCP and device credentials separate. Startup rejects example credentials, and request/reply bodies must never be logged. Webhooks can still target third parties, so real subscriptions require authorization for their destinations. No subscriptions or external messages were created during this preparation.
 
-不要改 quarantine/Gatekeeper，不抢占其他 writer，不改变用户现有 Codex、launchd、账号或服务配置。恢复不确定执行结果时只查询原请求，禁止自动重发。
+Do not modify quarantine/Gatekeeper, take over other writers, or change an existing Codex installation, launchd configuration, account, or service. Recover an uncertain execution outcome by querying the original request; never automatically resend it.
 
-发布前还需要：
+## Release review requirements
 
-1. 对最终归档重新扫描，并人工审核源码文本/示例；最好增加独立扫描器复核。当前工具没有高熵全面覆盖或恶意 payload 静态分析能力。
-2. 当前包署名为 zsx-117，未把 Git 作者记录当成版权链证明。原网站模板与依赖已从核心移除，不分发旧包锁或第三方运行时；以后增加外部代码时单独保留其许可。
-3. 在新机器/新自有测试账户完成 HTTPS、OAuth（若客户端要求）、Mac 源码连接及真实授权会话回读，不能用本次 fixtures 代替。
-4. 新建干净发布历史，保留原私库历史；不把原仓库改公开。若之后确认真实密钥曾泄露，另行协调撤销/轮换，不在本任务中擅自操作。
+1. Rescan the final archive and manually review source text and examples; an independent scanner is recommended. The current tooling does not provide comprehensive high-entropy detection or static analysis of malicious payloads.
+2. The package is attributed to zsx-117. Git author records are not treated as proof of the copyright chain. The old website templates and dependencies have been removed from the core; old lockfiles and third-party runtimes are not distributed. Preserve the licenses of any external code added later.
+3. Validate HTTPS, OAuth if the client requires it, the Mac source connector, and authorized conversation readback on a fresh machine with a separate test account you control. These fixtures cannot replace that validation.
+4. Publish a clean history while retaining the original private repository history; do not make an original repository public. If a real key is later confirmed to have leaked, coordinate revocation/rotation separately rather than doing it without authorization during this task.
 
-公开问题请提供版本、脱敏错误代码和最小合成复现，禁止粘贴令牌、设备 ID、完整请求正文、客户/交易数据或私人对话。
+Public issues should include the version, redacted error codes, and a minimal synthetic reproduction. Never paste tokens, device IDs, complete request bodies, customer/transaction data, or private conversations.
 
-第二轮：OAuth 资源端只从明确配置的同源 HTTPS JWKS 获取公开验证密钥；JWT 内的远程密钥地址不被采用。测试签名 key/token 只在内存中生成并使用，不写文件、不打印、不注册实际 OAuth 身份。配置模板 `.env.example` 与 `.env.oauth.example` 均被 .gitignore 显式保留，其余 .env 被忽略。
+The second preparation pass added an OAuth resource verifier that fetches public verification keys only from explicitly configured HTTPS JWKS on the issuer's origin. It ignores remote key addresses supplied inside JWTs. Test signing keys and tokens are created and used only in memory: no files, printed secrets, or real OAuth registrations. `.gitignore` explicitly preserves `.env.example` and `.env.oauth.example` while ignoring other .env files.
