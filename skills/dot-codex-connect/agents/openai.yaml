@@ -1,0 +1,6 @@
+interface:
+  display_name: "Dot Codex Connect · Open Source"
+  short_description: "Build and test a self-hosted MCP and Mac connector"
+  default_prompt: "Use $dot-codex-connect to prepare and test Dot Codex Connect from source on my own host."
+policy:
+  allow_implicit_invocation: true

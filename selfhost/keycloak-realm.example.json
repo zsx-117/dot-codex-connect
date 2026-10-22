@@ -1,0 +1,47 @@
+{
+  "realm": "dot-codex-source-example",
+  "enabled": false,
+  "registrationAllowed": false,
+  "accessTokenLifespan": 300,
+  "clientScopes": [
+    {
+      "name": "codex:bridge",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true",
+        "consent.screen.text": "Access the operator's selected local Codex conversations"
+      },
+      "protocolMappers": [
+        {
+          "name": "dot-codex-resource-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "https://connect.example.invalid/mcp",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "dot-codex-source-example",
+      "enabled": false,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "consentRequired": true,
+      "redirectUris": ["https://client.example.invalid/REPLACE_WITH_EXACT_CALLBACK"],
+      "webOrigins": [],
+      "attributes": {"pkce.code.challenge.method": "S256"},
+      "defaultClientScopes": ["codex:bridge"]
+    }
+  ],
+  "users": []
+}

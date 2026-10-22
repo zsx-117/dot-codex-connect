@@ -1,0 +1,14 @@
+{
+  "name": "dot-codex-connect-selfhost",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node --test test.mjs oauth.test.mjs oauth-route.test.mjs",
+    "start": "node server.mjs",
+    "test:http": "node --test http.test.mjs"
+  }
+}
