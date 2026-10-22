@@ -33,9 +33,9 @@ mkdir -p "$(dirname "$skill_dir")"
 if [ -e "$skill_dir" ] || [ -L "$skill_dir" ]; then
   echo "目标已存在，停止安装；请先检查现有 Skill。" >&2
 else
-  ln -s "$PWD/skills/dot-codex-connect" "$skill_dir"
+  ln -s "$PWD/skills/dot-codex-connect" "$skill_dir" &&
+    bash "$skill_dir/scripts/setup-mac.sh" --check
 fi
-bash "$skill_dir/scripts/setup-mac.sh" --check
 ```
 
 在新 Codex 会话里调用 `$dot-codex-connect`。不要移动/删除所链接的 checkout；安装不会替换旧 `dot-codex-install` 或启动服务。若其他 Skill 管理器仅复制 Skill 目录，需要另行克隆完整仓库，并将 `DOT_CODEX_SOURCE` 指向其绝对路径；这个 Skill 不是独立的服务端二进制包。
